@@ -1,0 +1,39 @@
+{
+  "manifest_version": 3,
+  "name": "Napoleon AI",
+  "version": "0.1.0",
+  "description": "Enhanced Real-time transcription with AI context repair",
+  
+  "permissions": [
+    "activeTab",
+    "storage",
+    "scripting"
+  ],
+  
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  
+  "background": {
+    "service_worker": "background.js"
+  },
+  
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "128": "public/icons/icon.png"
+    }
+  },
+  
+  "icons": {
+    "128": "public/icons/icon.png"
+  }
+}

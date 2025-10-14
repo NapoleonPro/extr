@@ -1,0 +1,1 @@
+{"version":3,"file":"background.js","mappings":";;;;;AAAA;AACA;AACA","sources":["webpack://extr/./src/background/background.ts"],"sourcesContent":["\"use strict\";\nconsole.log('Background service worker loaded!');\n// Nanti ini akan handle API calls\n"],"names":[],"sourceRoot":""}
