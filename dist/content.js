@@ -274,6 +274,12 @@ function hideOverlay() {
 // Listen for messages from popup
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     console.log('Message received:', message);
+    // Ping handler - check if content script is ready
+    if (message.action === 'ping') {
+        sendResponse({ success: true, message: 'Content script ready' });
+        return true;
+    }
+    // Start transcription
     if (message.action === 'start') {
         if (!recognition) {
             createOverlay();
@@ -285,6 +291,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         showOverlay();
         sendResponse({ success: true, message: 'Started' });
     }
+    // Stop transcription
     if (message.action === 'stop') {
         if (recognition) {
             recognition.stop();
