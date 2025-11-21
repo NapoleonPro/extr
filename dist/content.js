@@ -509,13 +509,14 @@ async function captureSystemAudio() {
         console.log('🔊 Requesting system audio capture...');
         // Request tab audio capture with optimized settings
         const stream = await navigator.mediaDevices.getDisplayMedia({
-            video: false, // Video tidak perlu
-            audio: {
-                echoCancellation: true,
-                noiseSuppression: true,
-                autoGainControl: true,
-                sampleRate: 48000 // Higher quality
-            }
+            video: true, // Video tidak perlu
+            audio: true
+            // audio: {
+            //   echoCancellation: true,
+            //   noiseSuppression: true,
+            //   autoGainControl: true,
+            //   sampleRate: 48000 // Higher quality
+            // } as any
         });
         if (!stream.getAudioTracks().length) {
             throw new Error('No audio track in stream');

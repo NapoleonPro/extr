@@ -403,13 +403,14 @@ async function captureSystemAudio(): Promise<boolean> {
     
     // Request tab audio capture with optimized settings
     const stream = await navigator.mediaDevices.getDisplayMedia({
-      video: false, // Video tidak perlu
-      audio: {
-        echoCancellation: true,
-        noiseSuppression: true,
-        autoGainControl: true,
-        sampleRate: 48000 // Higher quality
-      } as any
+      video: true, // Video tidak perlu
+      audio: true
+      // audio: {
+      //   echoCancellation: true,
+      //   noiseSuppression: true,
+      //   autoGainControl: true,
+      //   sampleRate: 48000 // Higher quality
+      // } as any
     });
 
     if (!stream.getAudioTracks().length) {
@@ -497,7 +498,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
         // Initialize recognition
         if (!recognition) {
-          recognition = new TranscriptRecognition(async (text: string, isFinal: boolean, confidence: number) => {
+          recognition = new TranscriptRecognition(async (text, isFinal, confidence) => {
             await updateTranscript(text, isFinal, confidence);
           });
         }
