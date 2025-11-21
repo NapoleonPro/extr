@@ -11,9 +11,9 @@ console.log('Background service worker with IndoBERT AI loaded!');
 // Dapatkan dari: https://huggingface.co/settings/tokens
 // JANGAN PERNAH membagikan kunci ini atau menyimpannya di dalam kode secara permanen.
 const HUGGINGFACE_API_KEY = ''; // ← PASTE KUNCI ANDA DI SINI (HANYA UNTUK DEVELOPMENT)
-if (HUGGINGFACE_API_KEY === '') {
-    console.error('❌ FATAL: HuggingFace API Key belum diatur di src/background/background.ts. Silakan masukkan kunci Anda untuk melanjutkan.');
-}
+// if (HUGGINGFACE_API_KEY === '') {
+//   console.error('❌ FATAL: HuggingFace API Key belum diatur di src/background/background.ts. Silakan masukkan kunci Anda untuk melanjutkan.');
+// }
 // IndoBERT model for Indonesian language
 const MODEL_NAME = 'indobenchmark/indobert-base-p1';
 // Cache untuk hasil repair (avoid duplicate API calls)

@@ -164,7 +164,7 @@ var __webpack_exports__ = {};
   \********************************/
 __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var _speechRecognition__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./speechRecognition */ "./src/content/speechRecognition.ts");
-// Optimized Content Script - System Audio Focus with Smart Buffer
+// Optimized Content Script - System Audio Focus with Smart Buffer + Auto-clear
 // File: src/content/content.ts
 
 console.log('Optimized content script loaded!');
@@ -177,6 +177,9 @@ let lastProcessedText = '';
 let displayedTexts = new Set();
 let transcriptBuffer = [];
 const BUFFER_CLEANUP_INTERVAL = 30000; // 30 detik
+// Auto-clear timer
+let autoClearTimer = null;
+const AUTO_CLEAR_DELAY = 5000; // 5 detik setelah transkrip terakhir
 // Create enhanced overlay UI
 function createOverlay() {
     if (transcriptOverlay)
@@ -268,6 +271,11 @@ function createOverlay() {
       to { opacity: 1; transform: translateY(0); }
     }
     
+    @keyframes fadeOut {
+      from { opacity: 1; transform: translateY(0); }
+      to { opacity: 0; transform: translateY(-10px); }
+    }
+    
     #transcript-overlay::-webkit-scrollbar {
       width: 6px;
     }
@@ -285,6 +293,10 @@ function createOverlay() {
     .transcript-segment {
       animation: fadeIn 0.3s ease-out;
       margin-bottom: 8px;
+    }
+    
+    .transcript-segment.fade-out {
+      animation: fadeOut 0.5s ease-out forwards;
     }
     
     .repaired-text {
@@ -321,6 +333,33 @@ function startBufferCleanup() {
             displayedTexts.clear();
         }
     }, 10000); // Check setiap 10 detik
+}
+// Clear transcript display dengan animasi
+function clearTranscriptDisplay() {
+    const textDiv = document.getElementById('transcript-text');
+    if (!textDiv)
+        return;
+    // Add fade-out animation
+    const segments = textDiv.querySelectorAll('.transcript-segment');
+    segments.forEach(segment => {
+        segment.classList.add('fade-out');
+    });
+    // Clear after animation
+    setTimeout(() => {
+        textDiv.innerHTML = '';
+        console.log('🧹 Transcript cleared after 5s idle');
+    }, 500); // Match fade-out animation duration
+}
+// Reset auto-clear timer
+function resetAutoClearTimer() {
+    // Cancel existing timer
+    if (autoClearTimer) {
+        clearTimeout(autoClearTimer);
+    }
+    // Start new timer
+    autoClearTimer = setTimeout(() => {
+        clearTranscriptDisplay();
+    }, AUTO_CLEAR_DELAY);
 }
 // Cek apakah text sudah pernah ditampilkan atau sangat mirip
 function isTextAlreadyDisplayed(newText) {
@@ -417,7 +456,7 @@ async function repairTextWithAI(text, confidence) {
         return { text, wasRepaired: false };
     }
 }
-// Update transcript dengan smart buffering
+// Update transcript dengan smart buffering + auto-clear
 async function updateTranscript(text, isFinal, confidence) {
     if (!transcriptOverlay)
         return;
@@ -433,6 +472,8 @@ async function updateTranscript(text, isFinal, confidence) {
         console.log('⏭️ Skipping duplicate text:', text);
         return;
     }
+    // JANGAN TAMPILKAN TEXT DULU - Proses AI dulu
+    console.log('🔄 Processing text with AI:', text);
     // Apply AI repair (dengan quick mode)
     const repairResult = await repairTextWithAI(text, confidence);
     const repairedText = repairResult.text;
@@ -449,7 +490,7 @@ async function updateTranscript(text, isFinal, confidence) {
     const repairClass = wasRepaired ? 'repaired-text' : '';
     // Create new segment
     const segment = `<span class="transcript-segment ${confidenceClass} ${repairClass}">${repairedText}</span>`;
-    // REPLACE MODE: Only show latest text (cleaner look)
+    // TAMPILKAN SETELAH AI SELESAI PROSES (REPLACE MODE)
     textDiv.innerHTML = segment;
     // Update buffer
     lastProcessedText = repairedText;
@@ -458,6 +499,8 @@ async function updateTranscript(text, isFinal, confidence) {
         text: repairedText,
         timestamp: Date.now()
     });
+    // Reset auto-clear timer setiap ada transkrip baru
+    resetAutoClearTimer();
     console.log(`✅ Displayed: "${text}" → "${repairedText}" (confidence: ${confidence.toFixed(2)}, repaired: ${wasRepaired})`);
 }
 // Capture system audio (FOKUS DI SINI)
@@ -512,6 +555,11 @@ function resetBuffer() {
     lastProcessedText = '';
     displayedTexts.clear();
     transcriptBuffer = [];
+    // Cancel auto-clear timer
+    if (autoClearTimer) {
+        clearTimeout(autoClearTimer);
+        autoClearTimer = null;
+    }
     // CLEAR TRANSCRIPT DISPLAY
     const textDiv = document.getElementById('transcript-text');
     if (textDiv) {
