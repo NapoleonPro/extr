@@ -3,12 +3,195 @@
 <head>
   <meta charset="UTF-8">
   <link rel="stylesheet" href="popup.css">
+  <style>
+    body {
+      width: 340px;
+      padding: 20px;
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+
+    .container {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    h1 {
+      margin: 0 0 8px 0;
+      font-size: 22px;
+      font-weight: 600;
+      text-align: center;
+    }
+
+    .subtitle {
+      text-align: center;
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.8);
+      margin-bottom: 8px;
+    }
+
+    .info-box {
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 12px;
+      padding: 14px;
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .info-box h3 {
+      margin: 0 0 8px 0;
+      font-size: 14px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .info-box p {
+      margin: 0;
+      font-size: 13px;
+      line-height: 1.5;
+      color: rgba(255, 255, 255, 0.9);
+    }
+
+    .steps {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+      padding: 12px;
+      font-size: 12px;
+    }
+
+    .steps ol {
+      margin: 8px 0 0 0;
+      padding-left: 20px;
+    }
+
+    .steps li {
+      margin-bottom: 6px;
+      line-height: 1.4;
+    }
+
+    button {
+      padding: 14px;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      font-size: 15px;
+      font-weight: 600;
+      transition: all 0.3s;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    }
+
+    button:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+    }
+
+    button:active:not(:disabled) {
+      transform: translateY(0);
+    }
+
+    #startBtn {
+      background: linear-gradient(135deg, #4CAF50, #45a049);
+      color: white;
+    }
+
+    #stopBtn {
+      background: linear-gradient(135deg, #f44336, #d32f2f);
+      color: white;
+    }
+
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none !important;
+    }
+
+    .status-indicator {
+      text-align: center;
+      font-size: 13px;
+      padding: 10px;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 8px;
+      display: none;
+      font-weight: 500;
+    }
+
+    .status-indicator.active {
+      display: block;
+      background: rgba(76, 175, 80, 0.25);
+      animation: pulse-bg 2s infinite;
+    }
+
+    @keyframes pulse-bg {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.8; }
+    }
+
+    .features {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+      padding: 12px;
+      font-size: 11px;
+      line-height: 1.6;
+    }
+
+    .features h3 {
+      margin: 0 0 8px 0;
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .features ul {
+      margin: 0;
+      padding-left: 20px;
+    }
+
+    .features li {
+      margin-bottom: 4px;
+    }
+  </style>
 </head>
 <body>
   <div class="container">
-    <h1>🎤 Transcript Enhancer</h1>
-    <button id="startBtn">Start Transcription</button>
-    <button id="stopBtn" disabled>Stop</button>
+    <h1>🔊 Live Transcript</h1>
+    <div class="subtitle">System Audio to Text with AI Repair</div>
+    
+    <div class="info-box">
+      <h3>🎯 Mode: System Audio Only</h3>
+      <p>Extension ini mendengar audio dari tab/aplikasi yang sedang berjalan, bukan dari microphone Anda.</p>
+    </div>
+
+    <div class="steps">
+      <strong>📋 Cara Pakai:</strong>
+      <ol>
+        <li>Buka video/meeting yang ingin di-transcript</li>
+        <li>Klik "Start Listening"</li>
+        <li>Pilih tab/window yang ada audionya</li>
+        <li>✅ Centang "Share audio"</li>
+        <li>Klik "Share"</li>
+      </ol>
+    </div>
+
+    <div class="status-indicator" id="statusIndicator">
+      🔴 Recording System Audio...
+    </div>
+
+    <button id="startBtn">▶️ Start Listening</button>
+    <button id="stopBtn" disabled>⏹️ Stop</button>
+
+    <div class="features">
+      <h3>✨ Features:</h3>
+      <ul>
+        <li>✅ Real-time system audio transcription</li>
+        <li>🤖 AI-powered text repair (IndoBERT)</li>
+        <li>🚫 Smart duplicate detection</li>
+        <li>⚡ Optimized for low latency</li>
+        <li>🎯 Shows only final, processed text</li>
+      </ul>
+    </div>
   </div>
   <script src="popup.js"></script>
 </body>
