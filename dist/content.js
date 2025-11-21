@@ -239,7 +239,7 @@ function createOverlay() {
     gap: 6px;
   `;
     audioSourceDiv.innerHTML = `
-    <span>🔊</span>
+    <span style="display: inline-block; width: 8px; height: 8px; background: #999; border-radius: 50%;"></span>
     <span>System Audio</span>
   `;
     headerDiv.appendChild(statusDiv);
@@ -253,7 +253,8 @@ function createOverlay() {
     color: rgba(255, 255, 255, 0.95);
     letter-spacing: 0.3px;
   `;
-    textDiv.innerHTML = `<span style="color: #999; font-style: italic;">Waiting for audio...</span>`;
+    // NO PLACEHOLDER TEXT - Start empty
+    textDiv.innerHTML = '';
     // Add animation keyframes
     const style = document.createElement('style');
     style.textContent = `
@@ -447,13 +448,9 @@ async function updateTranscript(text, isFinal, confidence) {
     // Check if text was repaired
     const repairClass = wasRepaired ? 'repaired-text' : '';
     // Create new segment
-    const segment = `<span class="transcript-segment ${confidenceClass} ${repairClass}">${repairedText}</span> `;
-    // Clear placeholder text if present
-    if (textDiv.innerHTML.includes('Waiting for audio')) {
-        textDiv.innerHTML = '';
-    }
-    // Append new text
-    textDiv.innerHTML += segment;
+    const segment = `<span class="transcript-segment ${confidenceClass} ${repairClass}">${repairedText}</span>`;
+    // REPLACE MODE: Only show latest text (cleaner look)
+    textDiv.innerHTML = segment;
     // Update buffer
     lastProcessedText = repairedText;
     displayedTexts.add(repairedText.toLowerCase().trim());
@@ -461,16 +458,6 @@ async function updateTranscript(text, isFinal, confidence) {
         text: repairedText,
         timestamp: Date.now()
     });
-    // Auto-scroll
-    textDiv.scrollTop = textDiv.scrollHeight;
-    // Limit display length (keep last 10 segments only)
-    const segments = textDiv.querySelectorAll('.transcript-segment');
-    if (segments.length > 10) {
-        // Remove oldest segments
-        for (let i = 0; i < segments.length - 10; i++) {
-            segments[i].remove();
-        }
-    }
     console.log(`✅ Displayed: "${text}" → "${repairedText}" (confidence: ${confidence.toFixed(2)}, repaired: ${wasRepaired})`);
 }
 // Capture system audio (FOKUS DI SINI)
@@ -520,11 +507,16 @@ function stopAllAudioCapture() {
         audioContext = null;
     }
 }
-// Reset buffer
+// Reset buffer dan clear display
 function resetBuffer() {
     lastProcessedText = '';
     displayedTexts.clear();
     transcriptBuffer = [];
+    // CLEAR TRANSCRIPT DISPLAY
+    const textDiv = document.getElementById('transcript-text');
+    if (textDiv) {
+        textDiv.innerHTML = ''; // Empty, no placeholder
+    }
 }
 // Listen for messages from popup
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -539,7 +531,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         (async () => {
             try {
                 createOverlay();
-                resetBuffer(); // Clear buffer saat start
+                resetBuffer(); // Clear buffer AND display saat start
                 // WAJIB capture system audio
                 const captureSuccess = await captureSystemAudio();
                 if (!captureSuccess) {
@@ -569,7 +561,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             recognition.stop();
             hideOverlay();
             stopAllAudioCapture();
-            resetBuffer();
+            resetBuffer(); // Clear saat stop juga
         }
         sendResponse({ success: true, message: 'Stopped' });
         return true;
