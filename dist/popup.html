@@ -73,6 +73,15 @@
       line-height: 1.4;
     }
 
+    .important-note {
+      background: rgba(255, 152, 0, 0.2);
+      border-left: 3px solid #FF9800;
+      padding: 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
     button {
       padding: 14px;
       border: none;
@@ -156,27 +165,34 @@
 </head>
 <body>
   <div class="container">
-    <h1>🔊 Live Transcript</h1>
-    <div class="subtitle">System Audio to Text with AI Repair</div>
+    <h1>🎙️ Live Transcript</h1>
+    <div class="subtitle">Tab Audio to Text with AI Repair</div>
     
     <div class="info-box">
-      <h3>🎯 Mode: System Audio Only</h3>
-      <p>Extension ini mendengar audio dari tab/aplikasi yang sedang berjalan, bukan dari microphone Anda.</p>
+      <h3>✅ Cara Kerja</h3>
+      <p>Extension ini langsung menangkap audio dari tab browser (Zoom, Meet, YouTube, dll) tanpa perlu permission tambahan!</p>
     </div>
 
     <div class="steps">
       <strong>📋 Cara Pakai:</strong>
       <ol>
-        <li>Buka video/meeting yang ingin di-transcript</li>
-        <li>Klik "Start Listening"</li>
-        <li>Pilih tab/window yang ada audionya</li>
-        <li>✅ Centang "Share audio"</li>
-        <li>Klik "Share"</li>
+        <li>Buka Zoom/Meet/video yang ingin di-transcript</li>
+        <li><strong>PENTING:</strong> Pastikan audio di tab tersebut sudah playing</li>
+        <li>Klik "Start Listening" di bawah</li>
+        <li>Transkrip akan muncul di bagian bawah layar</li>
       </ol>
     </div>
 
+    <div class="important-note">
+      <strong>⚠️ Catatan Penting:</strong><br>
+      • Audio harus sudah playing di tab<br>
+      • Tidak perlu izin screen sharing<br>
+      • Bekerja langsung di Zoom & Google Meet<br>
+      • Untuk hasil terbaik, gunakan headset/speaker
+    </div>
+
     <div class="status-indicator" id="statusIndicator">
-      🔴 Recording System Audio...
+      🔴 Recording Tab Audio...
     </div>
 
     <button id="startBtn">▶️ Start Listening</button>
@@ -185,11 +201,11 @@
     <div class="features">
       <h3>✨ Features:</h3>
       <ul>
-        <li>✅ Real-time system audio transcription</li>
+        <li>✅ Direct tab audio capture (no permissions needed)</li>
         <li>🤖 AI-powered text repair (IndoBERT)</li>
         <li>🚫 Smart duplicate detection</li>
         <li>⚡ Optimized for low latency</li>
-        <li>🎯 Shows only final, processed text</li>
+        <li>🎯 Works with Zoom, Meet, Teams, etc.</li>
       </ul>
     </div>
   </div>

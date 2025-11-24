@@ -1,20 +1,18 @@
-// Optimized Content Script - System Audio Focus with Smart Buffer
+// Content Script - Tab Audio Capture via Background Worker
 // File: src/content/content.ts
 
 import { TranscriptRecognition } from './speechRecognition';
 
-console.log('Optimized content script loaded!');
+console.log('Tab Audio Capture content script loaded!');
 
 let recognition: TranscriptRecognition | null = null;
 let transcriptOverlay: HTMLDivElement | null = null;
-let audioContext: AudioContext | null = null;
-let systemAudioStream: MediaStream | null = null;
 
-// Buffer management untuk avoid duplikasi
+// Buffer management
 let lastProcessedText = '';
 let displayedTexts = new Set<string>();
 let transcriptBuffer: Array<{text: string, timestamp: number}> = [];
-const BUFFER_CLEANUP_INTERVAL = 30000; // 30 detik
+const BUFFER_CLEANUP_INTERVAL = 30000;
 
 // Create enhanced overlay UI
 function createOverlay() {
@@ -43,7 +41,6 @@ function createOverlay() {
     border: 1px solid rgba(255, 255, 255, 0.1);
   `;
 
-  // Header with status
   const headerDiv = document.createElement('div');
   headerDiv.style.cssText = `
     display: flex;
@@ -54,7 +51,6 @@ function createOverlay() {
     border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   `;
 
-  // Status indicator
   const statusDiv = document.createElement('div');
   statusDiv.id = 'transcript-status';
   statusDiv.style.cssText = `
@@ -67,10 +63,9 @@ function createOverlay() {
   `;
   statusDiv.innerHTML = `
     <span style="display: inline-block; width: 10px; height: 10px; background: #4CAF50; border-radius: 50%; animation: pulse 1.5s infinite;"></span>
-    <span id="status-text">Listening to System Audio...</span>
+    <span id="status-text">Listening to Tab Audio...</span>
   `;
 
-  // Audio source indicator (always system audio)
   const audioSourceDiv = document.createElement('div');
   audioSourceDiv.id = 'audio-source';
   audioSourceDiv.style.cssText = `
@@ -82,13 +77,12 @@ function createOverlay() {
   `;
   audioSourceDiv.innerHTML = `
     <span>🔊</span>
-    <span>System Audio</span>
+    <span>Tab Audio (Direct)</span>
   `;
 
   headerDiv.appendChild(statusDiv);
   headerDiv.appendChild(audioSourceDiv);
 
-  // Transcript text container
   const textDiv = document.createElement('div');
   textDiv.id = 'transcript-text';
   textDiv.style.cssText = `
@@ -99,7 +93,6 @@ function createOverlay() {
   `;
   textDiv.innerHTML = `<span style="color: #999; font-style: italic;">Waiting for audio...</span>`;
 
-  // Add animation keyframes
   const style = document.createElement('style');
   style.textContent = `
     @keyframes pulse {
@@ -153,46 +146,36 @@ function createOverlay() {
   document.body.appendChild(transcriptOverlay);
 
   console.log('Enhanced overlay created');
-  
-  // Start buffer cleanup timer
   startBufferCleanup();
 }
 
-// Buffer cleanup untuk hapus teks lama
 function startBufferCleanup() {
   setInterval(() => {
     const now = Date.now();
-    // Hapus entri lebih dari 30 detik
     transcriptBuffer = transcriptBuffer.filter(item => 
       now - item.timestamp < BUFFER_CLEANUP_INTERVAL
     );
     
-    // Limit displayedTexts set size
     if (displayedTexts.size > 50) {
       displayedTexts.clear();
     }
-  }, 10000); // Check setiap 10 detik
+  }, 10000);
 }
 
-// Cek apakah text sudah pernah ditampilkan atau sangat mirip
 function isTextAlreadyDisplayed(newText: string): boolean {
   const normalized = newText.toLowerCase().trim();
   
-  // Exact match
   if (displayedTexts.has(normalized)) {
     return true;
   }
   
-  // Check similarity dengan text terakhir
   if (lastProcessedText) {
     const lastNormalized = lastProcessedText.toLowerCase().trim();
     
-    // Jika text baru adalah subset dari text lama, skip
     if (lastNormalized.includes(normalized) && normalized.length > 5) {
       return true;
     }
     
-    // Jika sangat mirip (>80% sama)
     const similarity = calculateSimilarity(normalized, lastNormalized);
     if (similarity > 0.8) {
       return true;
@@ -202,7 +185,6 @@ function isTextAlreadyDisplayed(newText: string): boolean {
   return false;
 }
 
-// Simple similarity calculation
 function calculateSimilarity(str1: string, str2: string): number {
   const longer = str1.length > str2.length ? str1 : str2;
   const shorter = str1.length > str2.length ? str2 : str1;
@@ -213,7 +195,6 @@ function calculateSimilarity(str1: string, str2: string): number {
   return (longer.length - editDistance) / longer.length;
 }
 
-// Levenshtein distance
 function getEditDistance(str1: string, str2: string): number {
   const matrix: number[][] = [];
   
@@ -242,19 +223,15 @@ function getEditDistance(str1: string, str2: string): number {
   return matrix[str2.length][str1.length];
 }
 
-// Context Repair dengan caching dan optimization
 async function repairTextWithAI(text: string, confidence: number): Promise<{text: string, wasRepaired: boolean}> {
   try {
-    // Update status
     const statusText = document.getElementById('status-text');
     if (statusText) {
       statusText.textContent = 'Processing with AI...';
     }
     
-    // Generate unique request ID
     const requestId = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     
-    // Send to background service (dengan timeout)
     const response = await Promise.race([
       chrome.runtime.sendMessage({
         action: 'repairText',
@@ -263,13 +240,12 @@ async function repairTextWithAI(text: string, confidence: number): Promise<{text
         requestId: requestId
       }),
       new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Timeout')), 3000) // 3 detik timeout
+        setTimeout(() => reject(new Error('Timeout')), 3000)
       )
     ]) as any;
 
-    // Reset status
     if (statusText) {
-      statusText.textContent = 'Listening to System Audio...';
+      statusText.textContent = 'Listening to Tab Audio...';
     }
 
     if (response && response.success) {
@@ -284,40 +260,34 @@ async function repairTextWithAI(text: string, confidence: number): Promise<{text
   } catch (error) {
     console.error('AI Repair error:', error);
     
-    // Reset status
     const statusText = document.getElementById('status-text');
     if (statusText) {
-      statusText.textContent = 'Listening to System Audio...';
+      statusText.textContent = 'Listening to Tab Audio...';
     }
     
     return { text, wasRepaired: false };
   }
 }
 
-// Update transcript dengan smart buffering
 async function updateTranscript(text: string, isFinal: boolean, confidence: number) {
   if (!transcriptOverlay) return;
 
-  // HANYA PROSES FINAL RESULTS
   if (!isFinal) {
-    return; // Skip semua interim results untuk kurangi delay
+    return;
   }
 
   const textDiv = document.getElementById('transcript-text');
   if (!textDiv) return;
 
-  // Check if text sudah pernah ditampilkan
   if (isTextAlreadyDisplayed(text)) {
     console.log('⏭️ Skipping duplicate text:', text);
     return;
   }
 
-  // Apply AI repair (dengan quick mode)
   const repairResult = await repairTextWithAI(text, confidence);
   const repairedText = repairResult.text;
   const wasRepaired = repairResult.wasRepaired;
 
-  // Determine confidence color
   let confidenceClass = '';
   if (confidence < 0.5) {
     confidenceClass = 'low-confidence';
@@ -325,21 +295,16 @@ async function updateTranscript(text: string, isFinal: boolean, confidence: numb
     confidenceClass = 'medium-confidence';
   }
 
-  // Check if text was repaired
   const repairClass = wasRepaired ? 'repaired-text' : '';
 
-  // Create new segment
   const segment = `<span class="transcript-segment ${confidenceClass} ${repairClass}">${repairedText}</span> `;
   
-  // Clear placeholder text if present
   if (textDiv.innerHTML.includes('Waiting for audio')) {
     textDiv.innerHTML = '';
   }
   
-  // Append new text
   textDiv.innerHTML += segment;
 
-  // Update buffer
   lastProcessedText = repairedText;
   displayedTexts.add(repairedText.toLowerCase().trim());
   transcriptBuffer.push({
@@ -347,51 +312,16 @@ async function updateTranscript(text: string, isFinal: boolean, confidence: numb
     timestamp: Date.now()
   });
 
-  // Auto-scroll
   textDiv.scrollTop = textDiv.scrollHeight;
 
-  // Limit display length (keep last 10 segments only)
   const segments = textDiv.querySelectorAll('.transcript-segment');
   if (segments.length > 10) {
-    // Remove oldest segments
     for (let i = 0; i < segments.length - 10; i++) {
       segments[i].remove();
     }
   }
 
   console.log(`✅ Displayed: "${text}" → "${repairedText}" (confidence: ${confidence.toFixed(2)}, repaired: ${wasRepaired})`);
-}
-
-// Capture system audio (FOKUS DI SINI)
-async function captureSystemAudio(): Promise<boolean> {
-  try {
-    console.log('🔊 Requesting system audio capture...');
-    
-    // Request tab audio capture with optimized settings
-    const stream = await navigator.mediaDevices.getDisplayMedia({
-      video: false, // Video tidak perlu
-      audio: {
-        echoCancellation: true,
-        noiseSuppression: true,
-        autoGainControl: true,
-        sampleRate: 48000 // Higher quality
-      } as any
-    });
-
-    if (!stream.getAudioTracks().length) {
-      throw new Error('No audio track in stream');
-    }
-
-    systemAudioStream = stream;
-    console.log('✅ System audio captured successfully');
-    
-    return true;
-
-  } catch (error) {
-    console.error('❌ Failed to capture system audio:', error);
-    alert('⚠️ Tidak bisa capture audio sistem.\n\nPastikan:\n1. Pilih tab/window yang ada audionya\n2. Centang "Share audio" saat diminta permission\n3. Gunakan Chrome/Edge (bukan Firefox)');
-    return false;
-  }
 }
 
 function showOverlay() {
@@ -406,18 +336,6 @@ function hideOverlay() {
   }
 }
 
-function stopAllAudioCapture() {
-  if (systemAudioStream) {
-    systemAudioStream.getTracks().forEach(track => track.stop());
-    systemAudioStream = null;
-  }
-  if (audioContext) {
-    audioContext.close();
-    audioContext = null;
-  }
-}
-
-// Reset buffer
 function resetBuffer() {
   lastProcessedText = '';
   displayedTexts.clear();
@@ -428,28 +346,19 @@ function resetBuffer() {
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   console.log('📨 Message received:', message);
 
-  // Ping handler
   if (message.action === 'ping') {
-    sendResponse({ success: true, message: 'Optimized content script ready' });
+    sendResponse({ success: true, message: 'Tab audio content script ready' });
     return true;
   }
 
-  // Start transcription - SELALU PAKAI SYSTEM AUDIO
   if (message.action === 'start') {
     (async () => {
       try {
         createOverlay();
-        resetBuffer(); // Clear buffer saat start
+        resetBuffer();
         
-        // WAJIB capture system audio
-        const captureSuccess = await captureSystemAudio();
-        
-        if (!captureSuccess) {
-          sendResponse({ success: false, message: 'Failed to capture system audio' });
-          return;
-        }
-
-        // Initialize recognition
+        // Initialize recognition - Speech Recognition API akan otomatis
+        // mendengar audio dari tab yang aktif (tidak perlu getDisplayMedia)
         if (!recognition) {
           recognition = new TranscriptRecognition(async (text, isFinal, confidence) => {
             await updateTranscript(text, isFinal, confidence);
@@ -459,7 +368,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         recognition.start();
         showOverlay();
         
-        sendResponse({ success: true, message: 'Started listening to system audio' });
+        sendResponse({ success: true, message: 'Started listening to tab audio' });
 
       } catch (error) {
         console.error('❌ Start error:', error);
@@ -470,12 +379,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
-  // Stop transcription
   if (message.action === 'stop') {
     if (recognition) {
       recognition.stop();
       hideOverlay();
-      stopAllAudioCapture();
       resetBuffer();
     }
     sendResponse({ success: true, message: 'Stopped' });

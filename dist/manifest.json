@@ -1,13 +1,14 @@
 {
   "manifest_version": 3,
-  "name": "Napoleon AI",
-  "version": "0.1.0",
-  "description": "Enhanced Real-time transcription with AI context repair",
+  "name": "Napoleon AI - Tab Audio Transcription",
+  "version": "0.2.0",
+  "description": "Real-time tab audio transcription with AI repair for Zoom, Meet, and more",
   
   "permissions": [
     "activeTab",
     "storage",
-    "scripting"
+    "scripting",
+    "tabCapture"
   ],
   
   "host_permissions": [
@@ -22,7 +23,8 @@
     {
       "matches": ["<all_urls>"],
       "js": ["content.js"],
-      "run_at": "document_idle"
+      "run_at": "document_idle",
+      "all_frames": false
     }
   ],
   
