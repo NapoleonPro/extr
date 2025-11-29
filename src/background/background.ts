@@ -1,22 +1,9 @@
-// Background Service Worker with HuggingFace IndoBERT Integration
-// File: src/background/background.ts
-
 console.log('Background service worker with IndoBERT AI loaded!');
 
-// ⚠️ IMPORTANT: Masukkan HuggingFace API key Anda di sini
-// Dapatkan dari: https://huggingface.co/settings/tokens
-// JANGAN PERNAH membagikan kunci ini atau menyimpannya di dalam kode secara permanen.
-const HUGGINGFACE_API_KEY = ''; // ← PASTE KUNCI ANDA DI SINI (HANYA UNTUK DEVELOPMENT)
+const HUGGINGFACE_API_KEY = ''; 
 
-// if (HUGGINGFACE_API_KEY === '') {
-//   console.error('❌ FATAL: HuggingFace API Key belum diatur di src/background/background.ts. Silakan masukkan kunci Anda untuk melanjutkan.');
-// }
-
-// IndoBERT model for Indonesian language
+// IndoBERT model b indo 
 const MODEL_NAME = 'indobenchmark/indobert-base-p1';
-
-// Alternative: Use multilingual BERT (backup jika IndoBERT slow)
-// const MODEL_NAME = 'bert-base-multilingual-cased';
 
 interface RepairRequest {
   text: string;
@@ -31,12 +18,14 @@ interface RepairResponse {
   originalText: string;
 }
 
-// Cache untuk hasil repair (avoid duplicate API calls)
+// Cache untuk hasil repair
 const repairCache = new Map<string, string>();
 
-// Simple Indonesian dictionary untuk quick fix common errors
+// Flag untuk warm-up status
+let modelWarmedUp = false;
+
+// Extended Indonesian dictionary
 const indonesianDictionary: { [key: string]: string } = {
-  // Common speech recognition errors in Indonesian
   'aplikas': 'aplikasi',
   'progrem': 'program',
   'komputr': 'komputer',
@@ -68,21 +57,74 @@ const indonesianDictionary: { [key: string]: string } = {
   'folder': 'folder',
   'direktori': 'direktori',
   'penyimpanan': 'penyimpanan',
-  'pnyimpanan': 'penyimpanan'
+  'pnyimpanan': 'penyimpanan',
+  // Common words
+  'saya': 'saya',
+  'anda': 'anda',
+  'kita': 'kita',
+  'mereka': 'mereka',
+  'bagaimana': 'bagaimana',
+  'kapan': 'kapan',
+  'dimana': 'dimana',
+  'mengapa': 'mengapa',
+  'siapa': 'siapa'
 };
 
-// Quick dictionary-based repair (instant, no API call)
+// 🚀 WARM-UP MODEL ON EXTENSION START
+async function warmUpModel() {
+  if (modelWarmedUp || !HUGGINGFACE_API_KEY) {
+    return;
+  }
+  
+  console.log('🔥 Warming up IndoBERT model...');
+  
+  try {
+    const response = await fetch(
+      `https://api-inference.huggingface.co/models/${MODEL_NAME}`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${HUGGINGFACE_API_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          inputs: 'Halo, ini adalah test [MASK] untuk warm-up model.',
+          options: { 
+            wait_for_model: true,
+            use_cache: true
+          }
+        })
+      }
+    );
+    
+    if (response.ok) {
+      modelWarmedUp = true;
+      console.log('✅ Model warmed up successfully!');
+    } else {
+      console.warn('⚠️ Model warm-up failed, will try on first use');
+    }
+  } catch (error) {
+    console.warn('⚠️ Model warm-up error:', error);
+  }
+}
+
+// Run warm-up on extension load
+if (HUGGINGFACE_API_KEY) {
+  warmUpModel();
+} else {
+  console.warn('⚠️ No HuggingFace API key set, AI repair will be disabled');
+}
+
+// Quick dictionary-based repair
 function quickRepair(text: string): { repaired: string; wasRepaired: boolean } {
   const words = text.toLowerCase().split(' ');
   let wasRepaired = false;
   
   const repairedWords = words.map(word => {
-    // Remove punctuation for matching
     const cleanWord = word.replace(/[.,!?;:]/g, '');
     
     if (indonesianDictionary[cleanWord]) {
       wasRepaired = true;
-      // Preserve punctuation
       return word.replace(cleanWord, indonesianDictionary[cleanWord]);
     }
     
@@ -91,7 +133,6 @@ function quickRepair(text: string): { repaired: string; wasRepaired: boolean } {
   
   const repaired = repairedWords.join(' ');
   
-  // Capitalize first letter
   return {
     repaired: repaired.charAt(0).toUpperCase() + repaired.slice(1),
     wasRepaired
@@ -115,8 +156,8 @@ async function repairWithIndoBERT(text: string, confidence: number): Promise<Rep
     };
   }
   
-  // Step 2: Skip API jika confidence tinggi (SAVE TIME)
-  if (confidence > 0.75) {
+  // Step 2: Skip API jika confidence tinggi (>0.8)
+  if (confidence > 0.8) {
     return {
       repairedText: text,
       success: true,
@@ -125,7 +166,7 @@ async function repairWithIndoBERT(text: string, confidence: number): Promise<Rep
     };
   }
   
-  // Step 3: Check cache (INSTANT)
+  // Step 3: Check cache
   if (repairCache.has(text)) {
     const cached = repairCache.get(text)!;
     console.log(`📦 Cache hit: "${text}"`);
@@ -137,7 +178,7 @@ async function repairWithIndoBERT(text: string, confidence: number): Promise<Rep
     };
   }
   
-  // Step 4: Untuk text pendek, skip API (TEXT PENDEK BIASANYA BENAR)
+  // Step 4: Skip untuk text pendek
   if (text.split(' ').length <= 2) {
     return {
       repairedText: text,
@@ -147,22 +188,32 @@ async function repairWithIndoBERT(text: string, confidence: number): Promise<Rep
     };
   }
   
-  // Step 5: Use HuggingFace API HANYA untuk kasus yang perlu
+  // Step 5: Skip jika API key tidak ada
+  if (!HUGGINGFACE_API_KEY) {
+    console.warn('⚠️ No API key, skipping AI repair');
+    return {
+      repairedText: text,
+      success: false,
+      wasRepaired: false,
+      originalText
+    };
+  }
+  
+  // Step 6: Use HuggingFace API dengan timeout PENDEK (1.5 detik)
   try {
-    console.log(`🤖 Calling IndoBERT API for: "${text}" (confidence: ${confidence.toFixed(2)})`);
+    console.log(`🤖 Calling IndoBERT API for: "${text}" (conf: ${confidence.toFixed(2)})`);
     
     const words = text.split(' ');
     let repairedText = text;
     let anyRepaired = false;
     
-    // HANYA repair 1 kata dengan confidence paling rendah (FASTER)
+    // Cari kata dengan confidence paling rendah
     let lowestConfWord = '';
     let lowestConfIndex = -1;
     
     for (let i = 0; i < words.length; i++) {
       const word = words[i];
       
-      // Heuristic: kata pendek (<3 huruf) atau kata dengan typo likely
       if (word.length < 3 || /\d/.test(word)) {
         lowestConfWord = word;
         lowestConfIndex = i;
@@ -170,7 +221,6 @@ async function repairWithIndoBERT(text: string, confidence: number): Promise<Rep
       }
     }
     
-    // Jika tidak ada kata suspicious, return original
     if (lowestConfIndex === -1) {
       return {
         repairedText: text,
@@ -180,14 +230,13 @@ async function repairWithIndoBERT(text: string, confidence: number): Promise<Rep
       };
     }
     
-    // Repair hanya 1 kata (SINGLE API CALL = FASTER)
     const maskedWords = [...words];
     maskedWords[lowestConfIndex] = '[MASK]';
     const maskedSentence = maskedWords.join(' ');
     
-    // Call API dengan timeout
+    // Call API dengan timeout LEBIH PENDEK (1.5 detik)
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 2000); // 2 detik timeout
+    const timeoutId = setTimeout(() => controller.abort(), 1500); // ← 1.5 detik timeout
     
     const response = await fetch(
       `https://api-inference.huggingface.co/models/${MODEL_NAME}`,
@@ -200,7 +249,7 @@ async function repairWithIndoBERT(text: string, confidence: number): Promise<Rep
         body: JSON.stringify({
           inputs: maskedSentence,
           options: { 
-            wait_for_model: true,
+            wait_for_model: false, // ← JANGAN TUNGGU, langsung error jika model cold
             use_cache: true
           }
         }),
@@ -237,7 +286,6 @@ async function repairWithIndoBERT(text: string, confidence: number): Promise<Rep
     // Cache result
     repairCache.set(text, repairedText);
     
-    // Limit cache size
     if (repairCache.size > 100) {
       const firstKey = repairCache.keys().next().value;
       if (firstKey) {
@@ -255,7 +303,6 @@ async function repairWithIndoBERT(text: string, confidence: number): Promise<Rep
     };
     
   } catch (error: any) {
-    // Timeout atau network error
     if (error.name === 'AbortError') {
       console.warn('⏱️ API timeout, using original text');
     } else {
@@ -277,9 +324,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === 'repairText') {
     const { text, confidence, requestId } = request as RepairRequest;
     
-    console.log(`📨 Repair request [${requestId}]: "${text}" (confidence: ${confidence?.toFixed(2) || 'N/A'})`);
+    console.log(`📨 Repair request [${requestId}]: "${text}" (conf: ${confidence?.toFixed(2) || 'N/A'})`);
     
-    // Process repair asynchronously
     repairWithIndoBERT(text, confidence)
       .then(result => {
         console.log(`📤 Sending response [${requestId}]:`, result);
@@ -295,21 +341,20 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         } as RepairResponse);
       });
     
-    return true; // Keep message channel open for async response
+    return true;
   }
   
-  // Health check
   if (request.action === 'ping') {
     sendResponse({ 
       status: 'ok', 
       message: 'Background service ready',
       model: MODEL_NAME,
+      modelWarmedUp: modelWarmedUp,
       hasCacheEntries: repairCache.size
     });
     return true;
   }
   
-  // Clear cache (for debugging)
   if (request.action === 'clearCache') {
     repairCache.clear();
     sendResponse({ 
@@ -318,8 +363,20 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     });
     return true;
   }
+  
+  // 🚀 MANUAL WARM-UP TRIGGER
+  if (request.action === 'warmUp') {
+    warmUpModel().then(() => {
+      sendResponse({
+        success: true,
+        warmedUp: modelWarmedUp
+      });
+    });
+    return true;
+  }
 });
 
 console.log('✅ IndoBERT AI Background Service initialized');
 console.log('📚 Dictionary entries:', Object.keys(indonesianDictionary).length);
 console.log('🤖 Model:', MODEL_NAME);
+console.log('🔑 API Key configured:', HUGGINGFACE_API_KEY ? 'Yes' : 'No');

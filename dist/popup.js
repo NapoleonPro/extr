@@ -4,14 +4,33 @@
   !*** ./src/popup/popup.ts ***!
   \****************************/
 
-// Simplified Popup Controller - System Audio Only
+// Popup Controller with Model Warm-up
 // File: src/popup/popup.ts
 console.log('Popup loaded!');
 const startBtn = document.getElementById('startBtn');
 const stopBtn = document.getElementById('stopBtn');
 const statusIndicator = document.getElementById('statusIndicator');
 let isTranscribing = false;
-// Check if content script is loaded
+let isWarmingUp = false;
+// 🚀 WARM-UP MODEL ON POPUP OPEN
+async function warmUpModelInBackground() {
+    if (isWarmingUp)
+        return;
+    isWarmingUp = true;
+    console.log('🔥 Triggering model warm-up...');
+    try {
+        const response = await chrome.runtime.sendMessage({ action: 'warmUp' });
+        console.log('Warm-up response:', response);
+    }
+    catch (error) {
+        console.warn('Warm-up failed:', error);
+    }
+    finally {
+        isWarmingUp = false;
+    }
+}
+// Warm-up model immediately when popup opens
+warmUpModelInBackground();
 async function ensureContentScriptLoaded(tabId) {
     try {
         const response = await chrome.tabs.sendMessage(tabId, { action: 'ping' });
@@ -34,7 +53,6 @@ async function ensureContentScriptLoaded(tabId) {
         }
     }
 }
-// Update UI state
 function updateUI(transcribing) {
     isTranscribing = transcribing;
     if (transcribing) {
@@ -48,7 +66,6 @@ function updateUI(transcribing) {
         statusIndicator.classList.remove('active');
     }
 }
-// Start transcription
 startBtn?.addEventListener('click', async () => {
     console.log('Start clicked!');
     try {
@@ -57,21 +74,17 @@ startBtn?.addEventListener('click', async () => {
             alert('❌ Error: No active tab found');
             return;
         }
-        // Check if it's a restricted page
         if (tab.url?.startsWith('chrome://') || tab.url?.startsWith('edge://')) {
             alert('❌ Cannot run on browser internal pages.\nPlease navigate to a regular webpage.');
             return;
         }
-        // Ensure content script is loaded
         const isLoaded = await ensureContentScriptLoaded(tab.id);
         if (!isLoaded) {
             alert('❌ Failed to load extension on this page.\nTry refreshing the page or using a different website.');
             return;
         }
-        // Hardcoded to system audio as per UI
         const useSystemAudio = true;
         console.log('Starting transcription with audio source: system');
-        // Send start message
         chrome.tabs.sendMessage(tab.id, {
             action: 'start',
             useSystemAudio: useSystemAudio
@@ -84,9 +97,8 @@ startBtn?.addEventListener('click', async () => {
             console.log('Start response:', response);
             if (response?.success) {
                 updateUI(true);
-                // Show success notification
                 if (useSystemAudio) {
-                    alert('✅ Started! Please select the tab/window to capture audio from.');
+                    alert('✅ Started! The transcription will appear at the bottom of the page.');
                 }
             }
             else {
@@ -99,7 +111,6 @@ startBtn?.addEventListener('click', async () => {
         alert('❌ Error: ' + error);
     }
 });
-// Stop transcription
 stopBtn?.addEventListener('click', async () => {
     console.log('Stop clicked!');
     try {
@@ -116,7 +127,6 @@ stopBtn?.addEventListener('click', async () => {
         updateUI(false);
     }
 });
-// Initialize UI
 updateUI(false);
 
 /******/ })()

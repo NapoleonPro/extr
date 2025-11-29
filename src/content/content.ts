@@ -1,4 +1,4 @@
-// Content Script - Tab Audio Capture via Background Worker
+// Content Script - Draggable & Resizable Overlay
 // File: src/content/content.ts
 
 import { TranscriptRecognition } from './speechRecognition';
@@ -8,13 +8,28 @@ console.log('Tab Audio Capture content script loaded!');
 let recognition: TranscriptRecognition | null = null;
 let transcriptOverlay: HTMLDivElement | null = null;
 
-// Buffer management
 let lastProcessedText = '';
 let displayedTexts = new Set<string>();
 let transcriptBuffer: Array<{text: string, timestamp: number}> = [];
 const BUFFER_CLEANUP_INTERVAL = 30000;
 
-// Create enhanced overlay UI
+// Drag & Resize state
+let isDragging = false;
+let isResizing = false;
+let dragStartX = 0;
+let dragStartY = 0;
+let overlayStartX = 0;
+let overlayStartY = 0;
+let resizeStartWidth = 0;
+let resizeStartHeight = 0;
+let resizeStartX = 0;
+let resizeStartY = 0;
+
+// Auto-clear state
+let lastAudioTimestamp = Date.now();
+let autoClearTimer: number | null = null;
+const AUTO_CLEAR_DELAY = 4000; // 4 detik tanpa suara
+
 function createOverlay() {
   if (transcriptOverlay) return;
 
@@ -27,28 +42,33 @@ function createOverlay() {
     transform: translateX(-50%);
     background: rgba(0, 0, 0, 0.92);
     color: white;
-    padding: 20px 28px;
+    padding: 0;
     border-radius: 16px;
     font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
     font-size: 17px;
-    max-width: 85%;
-    max-height: 35vh;
-    overflow-y: auto;
+    width: 600px;
+    height: 250px;
     z-index: 999999;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
     backdrop-filter: blur(10px);
     display: none;
     border: 1px solid rgba(255, 255, 255, 0.1);
+    resize: none;
   `;
 
+  // Header (draggable area)
   const headerDiv = document.createElement('div');
+  headerDiv.id = 'transcript-header';
   headerDiv.style.cssText = `
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 12px;
-    padding-bottom: 8px;
+    padding: 12px 16px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    cursor: move;
+    user-select: none;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 16px 16px 0 0;
   `;
 
   const statusDiv = document.createElement('div');
@@ -63,7 +83,14 @@ function createOverlay() {
   `;
   statusDiv.innerHTML = `
     <span style="display: inline-block; width: 10px; height: 10px; background: #4CAF50; border-radius: 50%; animation: pulse 1.5s infinite;"></span>
-    <span id="status-text">Listening to Tab Audio...</span>
+    <span id="status-text">Listening...</span>
+  `;
+
+  const controlsDiv = document.createElement('div');
+  controlsDiv.style.cssText = `
+    display: flex;
+    gap: 8px;
+    align-items: center;
   `;
 
   const audioSourceDiv = document.createElement('div');
@@ -75,13 +102,20 @@ function createOverlay() {
     align-items: center;
     gap: 6px;
   `;
-  audioSourceDiv.innerHTML = `
-    <span>🔊</span>
-    <span>Tab Audio (Direct)</span>
-  `;
+  audioSourceDiv.innerHTML = `<span>🔊</span><span>Tab Audio</span>`;
 
+  controlsDiv.appendChild(audioSourceDiv);
   headerDiv.appendChild(statusDiv);
-  headerDiv.appendChild(audioSourceDiv);
+  headerDiv.appendChild(controlsDiv);
+
+  // Content area (scrollable)
+  const contentDiv = document.createElement('div');
+  contentDiv.id = 'transcript-content';
+  contentDiv.style.cssText = `
+    padding: 16px 20px;
+    overflow-y: auto;
+    height: calc(100% - 100px);
+  `;
 
   const textDiv = document.createElement('div');
   textDiv.id = 'transcript-text';
@@ -92,6 +126,36 @@ function createOverlay() {
     letter-spacing: 0.3px;
   `;
   textDiv.innerHTML = `<span style="color: #999; font-style: italic;">Waiting for audio...</span>`;
+
+  const interimDiv = document.createElement('div');
+  interimDiv.id = 'interim-text';
+  interimDiv.style.cssText = `
+    margin-top: 8px;
+    padding: 8px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 6px;
+    font-style: italic;
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 15px;
+    display: none;
+  `;
+
+  contentDiv.appendChild(textDiv);
+  contentDiv.appendChild(interimDiv);
+
+  // Resize handle
+  const resizeHandle = document.createElement('div');
+  resizeHandle.id = 'resize-handle';
+  resizeHandle.style.cssText = `
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 20px;
+    height: 20px;
+    cursor: nwse-resize;
+    background: linear-gradient(135deg, transparent 50%, rgba(255,255,255,0.2) 50%);
+    border-radius: 0 0 16px 0;
+  `;
 
   const style = document.createElement('style');
   style.textContent = `
@@ -105,16 +169,16 @@ function createOverlay() {
       to { opacity: 1; transform: translateY(0); }
     }
     
-    #transcript-overlay::-webkit-scrollbar {
+    #transcript-content::-webkit-scrollbar {
       width: 6px;
     }
     
-    #transcript-overlay::-webkit-scrollbar-track {
+    #transcript-content::-webkit-scrollbar-track {
       background: rgba(255, 255, 255, 0.05);
       border-radius: 3px;
     }
     
-    #transcript-overlay::-webkit-scrollbar-thumb {
+    #transcript-content::-webkit-scrollbar-thumb {
       background: rgba(255, 255, 255, 0.2);
       border-radius: 3px;
     }
@@ -138,15 +202,118 @@ function createOverlay() {
     .medium-confidence {
       color: #FFEB3B;
     }
+    
+    #transcript-overlay.dragging {
+      cursor: move !important;
+    }
+    
+    #transcript-overlay.resizing {
+      cursor: nwse-resize !important;
+    }
   `;
   document.head.appendChild(style);
 
   transcriptOverlay.appendChild(headerDiv);
-  transcriptOverlay.appendChild(textDiv);
+  transcriptOverlay.appendChild(contentDiv);
+  transcriptOverlay.appendChild(resizeHandle);
   document.body.appendChild(transcriptOverlay);
 
-  console.log('Enhanced overlay created');
+  // Setup drag & resize
+  setupDragAndResize(headerDiv, resizeHandle);
+
+  console.log('Enhanced draggable & resizable overlay created');
   startBufferCleanup();
+}
+
+function setupDragAndResize(header: HTMLElement, resizeHandle: HTMLElement) {
+  if (!transcriptOverlay) return;
+
+  // DRAG functionality
+  header.addEventListener('mousedown', (e: MouseEvent) => {
+    if ((e.target as HTMLElement).closest('#resize-handle')) return;
+    
+    isDragging = true;
+    transcriptOverlay!.classList.add('dragging');
+    
+    dragStartX = e.clientX;
+    dragStartY = e.clientY;
+    
+    const rect = transcriptOverlay!.getBoundingClientRect();
+    overlayStartX = rect.left;
+    overlayStartY = rect.top;
+    
+    // Remove transform for absolute positioning
+    transcriptOverlay!.style.transform = 'none';
+    transcriptOverlay!.style.left = `${overlayStartX}px`;
+    transcriptOverlay!.style.top = `${overlayStartY}px`;
+    
+    e.preventDefault();
+  });
+
+  // RESIZE functionality
+  resizeHandle.addEventListener('mousedown', (e: MouseEvent) => {
+    isResizing = true;
+    transcriptOverlay!.classList.add('resizing');
+    
+    resizeStartX = e.clientX;
+    resizeStartY = e.clientY;
+    
+    const rect = transcriptOverlay!.getBoundingClientRect();
+    resizeStartWidth = rect.width;
+    resizeStartHeight = rect.height;
+    
+    e.preventDefault();
+    e.stopPropagation();
+  });
+
+  // Global mouse move
+  document.addEventListener('mousemove', (e: MouseEvent) => {
+    if (isDragging && transcriptOverlay) {
+      const deltaX = e.clientX - dragStartX;
+      const deltaY = e.clientY - dragStartY;
+      
+      let newX = overlayStartX + deltaX;
+      let newY = overlayStartY + deltaY;
+      
+      // Boundary constraints
+      const maxX = window.innerWidth - transcriptOverlay.offsetWidth;
+      const maxY = window.innerHeight - transcriptOverlay.offsetHeight;
+      
+      newX = Math.max(0, Math.min(newX, maxX));
+      newY = Math.max(0, Math.min(newY, maxY));
+      
+      transcriptOverlay.style.left = `${newX}px`;
+      transcriptOverlay.style.top = `${newY}px`;
+    }
+    
+    if (isResizing && transcriptOverlay) {
+      const deltaX = e.clientX - resizeStartX;
+      const deltaY = e.clientY - resizeStartY;
+      
+      let newWidth = resizeStartWidth + deltaX;
+      let newHeight = resizeStartHeight + deltaY;
+      
+      // Min/max constraints
+      newWidth = Math.max(300, Math.min(newWidth, window.innerWidth - 40));
+      newHeight = Math.max(150, Math.min(newHeight, window.innerHeight - 40));
+      
+      transcriptOverlay.style.width = `${newWidth}px`;
+      transcriptOverlay.style.height = `${newHeight}px`;
+    }
+  });
+
+  // Global mouse up
+  document.addEventListener('mouseup', () => {
+    if (isDragging) {
+      isDragging = false;
+      transcriptOverlay?.classList.remove('dragging');
+    }
+    
+    if (isResizing) {
+      isResizing = false;
+      transcriptOverlay?.classList.remove('resizing');
+    }
+  });
 }
 
 function startBufferCleanup() {
@@ -227,7 +394,7 @@ async function repairTextWithAI(text: string, confidence: number): Promise<{text
   try {
     const statusText = document.getElementById('status-text');
     if (statusText) {
-      statusText.textContent = 'Processing with AI...';
+      statusText.textContent = 'Processing...';
     }
     
     const requestId = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -240,12 +407,12 @@ async function repairTextWithAI(text: string, confidence: number): Promise<{text
         requestId: requestId
       }),
       new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Timeout')), 3000)
+        setTimeout(() => reject(new Error('Timeout')), 2000)
       )
     ]) as any;
 
     if (statusText) {
-      statusText.textContent = 'Listening to Tab Audio...';
+      statusText.textContent = 'Listening...';
     }
 
     if (response && response.success) {
@@ -258,70 +425,150 @@ async function repairTextWithAI(text: string, confidence: number): Promise<{text
     return { text, wasRepaired: false };
 
   } catch (error) {
-    console.error('AI Repair error:', error);
+    console.warn('AI Repair timeout/error:', error);
     
     const statusText = document.getElementById('status-text');
     if (statusText) {
-      statusText.textContent = 'Listening to Tab Audio...';
+      statusText.textContent = 'Listening...';
     }
     
     return { text, wasRepaired: false };
   }
 }
 
+function showInterim(text: string) {
+  const interimDiv = document.getElementById('interim-text');
+  if (!interimDiv) return;
+  
+  if (text && text.length > 2) {
+    interimDiv.textContent = `"${text}..."`;
+    interimDiv.style.display = 'block';
+  }
+}
+
+function hideInterim() {
+  const interimDiv = document.getElementById('interim-text');
+  if (interimDiv) {
+    interimDiv.style.display = 'none';
+  }
+}
+
+// ⏱️ AUTO-CLEAR: Hapus transkrip lama setelah beberapa detik tanpa suara
+function resetAutoClearTimer() {
+  // Clear existing timer
+  if (autoClearTimer !== null) {
+    clearTimeout(autoClearTimer);
+  }
+  
+  // Update timestamp
+  lastAudioTimestamp = Date.now();
+  
+  // Set new timer
+  autoClearTimer = window.setTimeout(() => {
+    const textDiv = document.getElementById('transcript-text');
+    if (!textDiv) return;
+    
+    const timeSinceLastAudio = Date.now() - lastAudioTimestamp;
+    
+    // Jika sudah lebih dari AUTO_CLEAR_DELAY tanpa suara baru
+    if (timeSinceLastAudio >= AUTO_CLEAR_DELAY) {
+      console.log('🧹 Auto-clearing old transcripts (no audio for 4s)');
+      
+      // Fade out effect
+      textDiv.style.transition = 'opacity 0.5s ease-out';
+      textDiv.style.opacity = '0';
+      
+      setTimeout(() => {
+        textDiv.innerHTML = '<span style="color: #999; font-style: italic;">Waiting for audio...</span>';
+        textDiv.style.opacity = '1';
+        
+        // Reset buffers
+        lastProcessedText = '';
+        displayedTexts.clear();
+      }, 500);
+    }
+  }, AUTO_CLEAR_DELAY);
+}
+
+// Stop auto-clear timer
+function stopAutoClearTimer() {
+  if (autoClearTimer !== null) {
+    clearTimeout(autoClearTimer);
+    autoClearTimer = null;
+  }
+}
+
 async function updateTranscript(text: string, isFinal: boolean, confidence: number) {
   if (!transcriptOverlay) return;
 
+  // ⏱️ Reset timer setiap ada audio baru (interim atau final)
+  resetAutoClearTimer();
+
   if (!isFinal) {
+    showInterim(text);
     return;
   }
 
+  hideInterim();
+
   const textDiv = document.getElementById('transcript-text');
-  if (!textDiv) return;
+  const contentDiv = document.getElementById('transcript-content');
+  if (!textDiv || !contentDiv) return;
 
   if (isTextAlreadyDisplayed(text)) {
     console.log('⏭️ Skipping duplicate text:', text);
     return;
   }
 
-  const repairResult = await repairTextWithAI(text, confidence);
-  const repairedText = repairResult.text;
-  const wasRepaired = repairResult.wasRepaired;
-
-  let confidenceClass = '';
-  if (confidence < 0.5) {
-    confidenceClass = 'low-confidence';
-  } else if (confidence < 0.7) {
-    confidenceClass = 'medium-confidence';
-  }
-
-  const repairClass = wasRepaired ? 'repaired-text' : '';
-
-  const segment = `<span class="transcript-segment ${confidenceClass} ${repairClass}">${repairedText}</span> `;
-  
   if (textDiv.innerHTML.includes('Waiting for audio')) {
     textDiv.innerHTML = '';
   }
   
-  textDiv.innerHTML += segment;
+  const tempId = `temp-${Date.now()}`;
+  const tempSegment = `<span class="transcript-segment" id="${tempId}">${text}</span> `;
+  textDiv.innerHTML += tempSegment;
+  contentDiv.scrollTop = contentDiv.scrollHeight;
 
-  lastProcessedText = repairedText;
-  displayedTexts.add(repairedText.toLowerCase().trim());
-  transcriptBuffer.push({
-    text: repairedText,
-    timestamp: Date.now()
-  });
+  repairTextWithAI(text, confidence).then(repairResult => {
+    const repairedText = repairResult.text;
+    const wasRepaired = repairResult.wasRepaired;
 
-  textDiv.scrollTop = textDiv.scrollHeight;
-
-  const segments = textDiv.querySelectorAll('.transcript-segment');
-  if (segments.length > 10) {
-    for (let i = 0; i < segments.length - 10; i++) {
-      segments[i].remove();
+    let confidenceClass = '';
+    if (confidence < 0.5) {
+      confidenceClass = 'low-confidence';
+    } else if (confidence < 0.7) {
+      confidenceClass = 'medium-confidence';
     }
-  }
 
-  console.log(`✅ Displayed: "${text}" → "${repairedText}" (confidence: ${confidence.toFixed(2)}, repaired: ${wasRepaired})`);
+    const repairClass = wasRepaired ? 'repaired-text' : '';
+
+    const finalSegment = `<span class="transcript-segment ${confidenceClass} ${repairClass}">${repairedText}</span> `;
+    
+    const tempEl = document.getElementById(tempId);
+    if (tempEl) {
+      tempEl.remove();
+    }
+    
+    textDiv.innerHTML += finalSegment;
+
+    lastProcessedText = repairedText;
+    displayedTexts.add(repairedText.toLowerCase().trim());
+    transcriptBuffer.push({
+      text: repairedText,
+      timestamp: Date.now()
+    });
+
+    contentDiv.scrollTop = contentDiv.scrollHeight;
+
+    const segments = textDiv.querySelectorAll('.transcript-segment');
+    if (segments.length > 10) {
+      for (let i = 0; i < segments.length - 10; i++) {
+        segments[i].remove();
+      }
+    }
+
+    console.log(`✅ Displayed: "${text}" → "${repairedText}" (conf: ${confidence.toFixed(2)}, repaired: ${wasRepaired})`);
+  });
 }
 
 function showOverlay() {
@@ -340,9 +587,9 @@ function resetBuffer() {
   lastProcessedText = '';
   displayedTexts.clear();
   transcriptBuffer = [];
+  stopAutoClearTimer(); // ⏱️ Stop timer saat reset
 }
 
-// Listen for messages from popup
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   console.log('📨 Message received:', message);
 
@@ -357,8 +604,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         createOverlay();
         resetBuffer();
         
-        // Initialize recognition - Speech Recognition API akan otomatis
-        // mendengar audio dari tab yang aktif (tidak perlu getDisplayMedia)
         if (!recognition) {
           recognition = new TranscriptRecognition(async (text, isFinal, confidence) => {
             await updateTranscript(text, isFinal, confidence);
@@ -384,6 +629,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       recognition.stop();
       hideOverlay();
       resetBuffer();
+      stopAutoClearTimer(); // ⏱️ Stop timer saat stop
     }
     sendResponse({ success: true, message: 'Stopped' });
     return true;
