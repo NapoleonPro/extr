@@ -40,19 +40,18 @@ function createOverlay() {
     bottom: 20px;
     left: 50%;
     transform: translateX(-50%);
-    background: rgba(0, 0, 0, 0.92);
-    color: white;
+    background: #f7f7f7;
+    color: #535353;
     padding: 0;
-    border-radius: 16px;
-    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-    font-size: 17px;
+    border-radius: 8px;
+    font-family: system-ui, -apple-system, sans-serif;
+    font-size: 16px;
     width: 600px;
     height: 250px;
     z-index: 999999;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
-    backdrop-filter: blur(10px);
+    box-shadow: 0 8px 0 #535353, 0 8px 32px rgba(0, 0, 0, 0.3);
     display: none;
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    border: 3px solid #535353;
     resize: none;
   `;
 
@@ -64,26 +63,28 @@ function createOverlay() {
     justify-content: space-between;
     align-items: center;
     padding: 12px 16px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    border-bottom: 3px solid #535353;
     cursor: move;
     user-select: none;
-    background: rgba(255, 255, 255, 0.05);
-    border-radius: 16px 16px 0 0;
+    background: white;
+    border-radius: 4px 4px 0 0;
   `;
 
   const statusDiv = document.createElement('div');
   statusDiv.id = 'transcript-status';
   statusDiv.style.cssText = `
-    font-size: 12px;
-    color: #4CAF50;
+    font-size: 11px;
+    color: #535353;
     display: flex;
     align-items: center;
     gap: 8px;
-    font-weight: 500;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
   `;
   statusDiv.innerHTML = `
-    <span style="display: inline-block; width: 10px; height: 10px; background: #4CAF50; border-radius: 50%; animation: pulse 1.5s infinite;"></span>
-    <span id="status-text">Listening...</span>
+    <span style="display: inline-block; width: 8px; height: 8px; background: #535353; border-radius: 50%;"></span>
+    <span id="status-text">LISTENING</span>
   `;
 
   const controlsDiv = document.createElement('div');
@@ -93,18 +94,69 @@ function createOverlay() {
     align-items: center;
   `;
 
+  // Stop button
+  const stopButton = document.createElement('button');
+  stopButton.id = 'overlay-stop-btn';
+  stopButton.textContent = '⏹ STOP';
+  stopButton.style.cssText = `
+    padding: 6px 14px;
+    background: white;
+    color: #535353;
+    border: 2px solid #535353;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    box-shadow: 0 3px 0 #535353;
+    position: relative;
+    top: 0;
+    transition: all 0.1s;
+  `;
+  
+  stopButton.addEventListener('mouseenter', () => {
+    stopButton.style.background = '#f0f0f0';
+  });
+  
+  stopButton.addEventListener('mouseleave', () => {
+    stopButton.style.background = 'white';
+  });
+  
+  stopButton.addEventListener('mousedown', () => {
+    stopButton.style.top = '3px';
+    stopButton.style.boxShadow = '0 0 0 #535353';
+  });
+  
+  stopButton.addEventListener('mouseup', () => {
+    stopButton.style.top = '0';
+    stopButton.style.boxShadow = '0 3px 0 #535353';
+  });
+  
+  stopButton.addEventListener('click', () => {
+    if (recognition) {
+      recognition.stop();
+      hideOverlay();
+      resetBuffer();
+      stopAutoClearTimer();
+    }
+  });
+
   const audioSourceDiv = document.createElement('div');
   audioSourceDiv.id = 'audio-source';
   audioSourceDiv.style.cssText = `
-    font-size: 11px;
-    color: #999;
+    font-size: 10px;
+    color: #787878;
     display: flex;
     align-items: center;
     gap: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
   `;
-  audioSourceDiv.innerHTML = `<span>🔊</span><span>Tab Audio</span>`;
+  // audioSourceDiv.innerHTML = `<span>🦖</span`;
 
   controlsDiv.appendChild(audioSourceDiv);
+  controlsDiv.appendChild(stopButton);
   headerDiv.appendChild(statusDiv);
   headerDiv.appendChild(controlsDiv);
 
@@ -122,21 +174,22 @@ function createOverlay() {
   textDiv.style.cssText = `
     line-height: 1.7;
     min-height: 32px;
-    color: rgba(255, 255, 255, 0.95);
+    color: #535353;
     letter-spacing: 0.3px;
   `;
-  textDiv.innerHTML = `<span style="color: #999; font-style: italic;">Waiting for audio...</span>`;
+  textDiv.innerHTML = `<span style="color: #787878; font-style: italic;">Waiting for audio...</span>`;
 
   const interimDiv = document.createElement('div');
   interimDiv.id = 'interim-text';
   interimDiv.style.cssText = `
     margin-top: 8px;
     padding: 8px;
-    background: rgba(255, 255, 255, 0.05);
-    border-radius: 6px;
+    background: rgba(83, 83, 83, 0.05);
+    border-radius: 4px;
+    border-left: 3px solid #787878;
     font-style: italic;
-    color: rgba(255, 255, 255, 0.6);
-    font-size: 15px;
+    color: #787878;
+    font-size: 14px;
     display: none;
   `;
 
@@ -150,37 +203,38 @@ function createOverlay() {
     position: absolute;
     bottom: 0;
     right: 0;
-    width: 20px;
-    height: 20px;
+    width: 16px;
+    height: 16px;
     cursor: nwse-resize;
-    background: linear-gradient(135deg, transparent 50%, rgba(255,255,255,0.2) 50%);
-    border-radius: 0 0 16px 0;
+    background: repeating-linear-gradient(
+      135deg,
+      #535353,
+      #535353 2px,
+      transparent 2px,
+      transparent 4px
+    );
+    border-radius: 0 0 4px 0;
   `;
 
   const style = document.createElement('style');
   style.textContent = `
-    @keyframes pulse {
-      0%, 100% { opacity: 1; transform: scale(1); }
-      50% { opacity: 0.3; transform: scale(0.8); }
-    }
-    
     @keyframes fadeIn {
       from { opacity: 0; transform: translateY(10px); }
       to { opacity: 1; transform: translateY(0); }
     }
     
     #transcript-content::-webkit-scrollbar {
-      width: 6px;
+      width: 8px;
     }
     
     #transcript-content::-webkit-scrollbar-track {
-      background: rgba(255, 255, 255, 0.05);
-      border-radius: 3px;
+      background: rgba(83, 83, 83, 0.1);
+      border-radius: 4px;
     }
     
     #transcript-content::-webkit-scrollbar-thumb {
-      background: rgba(255, 255, 255, 0.2);
-      border-radius: 3px;
+      background: #535353;
+      border-radius: 4px;
     }
     
     .transcript-segment {
@@ -189,22 +243,23 @@ function createOverlay() {
     }
     
     .repaired-text {
-      background: rgba(76, 175, 80, 0.2);
+      background: rgba(83, 83, 83, 0.1);
       padding: 2px 6px;
-      border-radius: 4px;
-      border-bottom: 2px solid #4CAF50;
+      border-radius: 3px;
+      border-bottom: 2px solid #535353;
     }
     
     .low-confidence {
-      color: #FF9800;
+      color: #787878;
     }
     
     .medium-confidence {
-      color: #FFEB3B;
+      color: #535353;
     }
     
     #transcript-overlay.dragging {
       cursor: move !important;
+      box-shadow: 0 12px 0 #535353, 0 12px 40px rgba(0, 0, 0, 0.4);
     }
     
     #transcript-overlay.resizing {
@@ -231,6 +286,7 @@ function setupDragAndResize(header: HTMLElement, resizeHandle: HTMLElement) {
   // DRAG functionality
   header.addEventListener('mousedown', (e: MouseEvent) => {
     if ((e.target as HTMLElement).closest('#resize-handle')) return;
+    if ((e.target as HTMLElement).closest('#overlay-stop-btn')) return;
     
     isDragging = true;
     transcriptOverlay!.classList.add('dragging');
@@ -394,7 +450,7 @@ async function repairTextWithAI(text: string, confidence: number): Promise<{text
   try {
     const statusText = document.getElementById('status-text');
     if (statusText) {
-      statusText.textContent = 'Processing...';
+      statusText.textContent = 'PROCESSING...';
     }
     
     const requestId = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -412,7 +468,7 @@ async function repairTextWithAI(text: string, confidence: number): Promise<{text
     ]) as any;
 
     if (statusText) {
-      statusText.textContent = 'Listening...';
+      statusText.textContent = 'LISTENING';
     }
 
     if (response && response.success) {
@@ -429,7 +485,7 @@ async function repairTextWithAI(text: string, confidence: number): Promise<{text
     
     const statusText = document.getElementById('status-text');
     if (statusText) {
-      statusText.textContent = 'Listening...';
+      statusText.textContent = 'LISTENING';
     }
     
     return { text, wasRepaired: false };
@@ -453,7 +509,7 @@ function hideInterim() {
   }
 }
 
-// ⏱️ AUTO-CLEAR: Hapus transkrip lama setelah beberapa detik tanpa suara
+// AUTO-CLEAR: Hapus transkrip lama setelah beberapa detik tanpa suara
 function resetAutoClearTimer() {
   // Clear existing timer
   if (autoClearTimer !== null) {
@@ -479,7 +535,7 @@ function resetAutoClearTimer() {
       textDiv.style.opacity = '0';
       
       setTimeout(() => {
-        textDiv.innerHTML = '<span style="color: #999; font-style: italic;">Waiting for audio...</span>';
+        textDiv.innerHTML = '<span style="color: #787878; font-style: italic;">Waiting for audio...</span>';
         textDiv.style.opacity = '1';
         
         // Reset buffers
@@ -591,7 +647,7 @@ function resetBuffer() {
 }
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  console.log('📨 Message received:', message);
+  console.log(' Message received:', message);
 
   if (message.action === 'ping') {
     sendResponse({ success: true, message: 'Tab audio content script ready' });

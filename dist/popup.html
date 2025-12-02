@@ -5,208 +5,138 @@
   <link rel="stylesheet" href="popup.css">
   <style>
     body {
-      width: 340px;
-      padding: 20px;
-      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
+      width: 280px;
+      padding: 0;
+      margin: 0;
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #f7f7f7;
     }
 
     .container {
       display: flex;
       flex-direction: column;
+      padding: 20px;
       gap: 16px;
     }
 
-    h1 {
-      margin: 0 0 8px 0;
-      font-size: 22px;
-      font-weight: 600;
+    .dino-header {
       text-align: center;
+      padding: 16px 0;
+      background: white;
+      border-bottom: 2px solid #535353;
+    }
+
+    .dino-title {
+      font-size: 18px;
+      font-weight: 600;
+      color: #535353;
+      margin: 8px 0 4px 0;
+      font-family: 'Press Start 2P', monospace, system-ui;
+      letter-spacing: 1px;
+    }
+
+    .dino-emoji {
+      font-size: 32px;
+      display: block;
+      margin-bottom: 4px;
     }
 
     .subtitle {
-      text-align: center;
-      font-size: 12px;
-      color: rgba(255, 255, 255, 0.8);
-      margin-bottom: 8px;
+      font-size: 11px;
+      color: #787878;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
     }
 
-    .info-box {
-      background: rgba(255, 255, 255, 0.15);
-      border-radius: 12px;
+    .quick-info {
+      background: white;
+      border: 2px solid #535353;
+      border-radius: 4px;
       padding: 14px;
-      backdrop-filter: blur(10px);
-      border: 1px solid rgba(255, 255, 255, 0.2);
-    }
-
-    .info-box h3 {
-      margin: 0 0 8px 0;
-      font-size: 14px;
-      font-weight: 600;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .info-box p {
-      margin: 0;
-      font-size: 13px;
-      line-height: 1.5;
-      color: rgba(255, 255, 255, 0.9);
-    }
-
-    .steps {
-      background: rgba(255, 255, 255, 0.1);
-      border-radius: 10px;
-      padding: 12px;
       font-size: 12px;
-    }
-
-    .steps ol {
-      margin: 8px 0 0 0;
-      padding-left: 20px;
-    }
-
-    .steps li {
-      margin-bottom: 6px;
-      line-height: 1.4;
-    }
-
-    .important-note {
-      background: rgba(255, 152, 0, 0.2);
-      border-left: 3px solid #FF9800;
-      padding: 10px;
-      border-radius: 6px;
-      font-size: 12px;
-      line-height: 1.5;
+      line-height: 1.6;
+      color: #535353;
     }
 
     button {
-      padding: 14px;
-      border: none;
-      border-radius: 10px;
+      padding: 16px;
+      border: 3px solid #535353;
+      border-radius: 4px;
       cursor: pointer;
-      font-size: 15px;
-      font-weight: 600;
-      transition: all 0.3s;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-    }
-
-    button:hover:not(:disabled) {
-      transform: translateY(-2px);
-      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
-    }
-
-    button:active:not(:disabled) {
-      transform: translateY(0);
+      font-size: 14px;
+      font-weight: 700;
+      transition: all 0.1s;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      font-family: system-ui, -apple-system, sans-serif;
     }
 
     #startBtn {
-      background: linear-gradient(135deg, #4CAF50, #45a049);
-      color: white;
+      background: white;
+      color: #535353;
+      box-shadow: 0 4px 0 #535353;
+      position: relative;
+      top: 0;
     }
 
-    #stopBtn {
-      background: linear-gradient(135deg, #f44336, #d32f2f);
-      color: white;
+    #startBtn:hover:not(:disabled) {
+      background: #f0f0f0;
+    }
+
+    #startBtn:active:not(:disabled) {
+      top: 4px;
+      box-shadow: 0 0 0 #535353;
     }
 
     button:disabled {
-      opacity: 0.5;
+      opacity: 0.4;
       cursor: not-allowed;
-      transform: none !important;
     }
 
-    .status-indicator {
+    .footer-note {
       text-align: center;
-      font-size: 13px;
-      padding: 10px;
-      background: rgba(255, 255, 255, 0.08);
-      border-radius: 8px;
-      display: none;
-      font-weight: 500;
+      font-size: 10px;
+      color: #787878;
+      padding-bottom: 8px;
     }
 
-    .status-indicator.active {
-      display: block;
-      background: rgba(76, 175, 80, 0.25);
-      animation: pulse-bg 2s infinite;
-    }
-
-    @keyframes pulse-bg {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.8; }
-    }
-
-    .features {
-      background: rgba(255, 255, 255, 0.1);
-      border-radius: 10px;
-      padding: 12px;
-      font-size: 11px;
-      line-height: 1.6;
-    }
-
-    .features h3 {
-      margin: 0 0 8px 0;
-      font-size: 13px;
-      font-weight: 600;
-    }
-
-    .features ul {
-      margin: 0;
-      padding-left: 20px;
-    }
-
-    .features li {
-      margin-bottom: 4px;
+    .pixel-divider {
+      height: 2px;
+      background: repeating-linear-gradient(
+        90deg,
+        #535353 0px,
+        #535353 4px,
+        transparent 4px,
+        transparent 8px
+      );
+      margin: 12px 0;
     }
   </style>
 </head>
 <body>
+  <div class="dino-header">
+    <span class="dino-emoji">🦖</span>
+    <div class="dino-title">Napoleon TRANSCRIPT</div>
+    <div class="subtitle">Tab Audio Capture</div>
+  </div>
+
   <div class="container">
-    <h1>🎙️ Live Transcript</h1>
-    <div class="subtitle">Tab Audio to Text with AI Repair</div>
-    
-    <div class="info-box">
-      <h3>✅ Cara Kerja</h3>
-      <p>Extension ini langsung menangkap audio dari tab browser (Zoom, Meet, YouTube, dll) tanpa perlu permission tambahan!</p>
+    <div class="quick-info">
+      <strong>Quick Guide:</strong><br>
+      1. Play audio in your tab<br>
+      2. Click START button<br>
+      3. View transcript at bottom<br>
+      4. Use STOP button in overlay
     </div>
 
-    <div class="steps">
-      <strong>📋 Cara Pakai:</strong>
-      <ol>
-        <li>Buka Zoom/Meet/video yang ingin di-transcript</li>
-        <li><strong>PENTING:</strong> Pastikan audio di tab tersebut sudah playing</li>
-        <li>Klik "Start Listening" di bawah</li>
-        <li>Transkrip akan muncul di bagian bawah layar</li>
-      </ol>
-    </div>
+    <button id="startBtn">▶ START LISTENING</button>
 
-    <div class="important-note">
-      <strong>⚠️ Catatan Penting:</strong><br>
-      • Audio harus sudah playing di tab<br>
-      • Tidak perlu izin screen sharing<br>
-      • Bekerja langsung di Zoom & Google Meet<br>
-      • Untuk hasil terbaik, gunakan headset/speaker
-    </div>
+    <div class="pixel-divider"></div>
 
-    <div class="status-indicator" id="statusIndicator">
-      🔴 Recording Tab Audio...
-    </div>
-
-    <button id="startBtn">▶️ Start Listening</button>
-    <button id="stopBtn" disabled>⏹️ Stop</button>
-
-    <div class="features">
-      <h3>✨ Features:</h3>
-      <ul>
-        <li>✅ Direct tab audio capture (no permissions needed)</li>
-        <li>🤖 AI-powered text repair (IndoBERT)</li>
-        <li>🚫 Smart duplicate detection</li>
-        <li>⚡ Optimized for low latency</li>
-        <li>🎯 Works with Zoom, Meet, Teams, etc.</li>
-      </ul>
+    <div class="footer-note">
+      IndoBERT-powered • Works on Zoom, Meet, YouTube
+      <br>
+      by Akbar Permana
     </div>
   </div>
   <script src="popup.js"></script>

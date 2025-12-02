@@ -8,8 +8,6 @@
 // File: src/popup/popup.ts
 console.log('Popup loaded!');
 const startBtn = document.getElementById('startBtn');
-const stopBtn = document.getElementById('stopBtn');
-const statusIndicator = document.getElementById('statusIndicator');
 let isTranscribing = false;
 let isWarmingUp = false;
 // 🚀 WARM-UP MODEL ON POPUP OPEN
@@ -55,16 +53,7 @@ async function ensureContentScriptLoaded(tabId) {
 }
 function updateUI(transcribing) {
     isTranscribing = transcribing;
-    if (transcribing) {
-        startBtn.disabled = true;
-        stopBtn.disabled = false;
-        statusIndicator.classList.add('active');
-    }
-    else {
-        startBtn.disabled = false;
-        stopBtn.disabled = true;
-        statusIndicator.classList.remove('active');
-    }
+    startBtn.disabled = transcribing;
 }
 startBtn?.addEventListener('click', async () => {
     console.log('Start clicked!');
@@ -97,9 +86,7 @@ startBtn?.addEventListener('click', async () => {
             console.log('Start response:', response);
             if (response?.success) {
                 updateUI(true);
-                if (useSystemAudio) {
-                    alert('✅ Started! The transcription will appear at the bottom of the page.');
-                }
+                // Overlay will appear automatically with STOP button
             }
             else {
                 alert('❌ Failed to start: ' + (response?.message || 'Unknown error'));
@@ -111,23 +98,8 @@ startBtn?.addEventListener('click', async () => {
         alert('❌ Error: ' + error);
     }
 });
-stopBtn?.addEventListener('click', async () => {
-    console.log('Stop clicked!');
-    try {
-        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-        if (!tab.id)
-            return;
-        chrome.tabs.sendMessage(tab.id, { action: 'stop' }, (response) => {
-            console.log('Stop response:', response);
-            updateUI(false);
-        });
-    }
-    catch (error) {
-        console.error('Error stopping transcription:', error);
-        updateUI(false);
-    }
-});
 updateUI(false);
+console.log('Popup ready!');
 
 /******/ })()
 ;

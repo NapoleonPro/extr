@@ -4,8 +4,6 @@
 console.log('Popup loaded!');
 
 const startBtn = document.getElementById('startBtn') as HTMLButtonElement;
-const stopBtn = document.getElementById('stopBtn') as HTMLButtonElement;
-const statusIndicator = document.getElementById('statusIndicator') as HTMLDivElement;
 
 let isTranscribing = false;
 let isWarmingUp = false;
@@ -55,16 +53,7 @@ async function ensureContentScriptLoaded(tabId: number): Promise<boolean> {
 
 function updateUI(transcribing: boolean) {
   isTranscribing = transcribing;
-  
-  if (transcribing) {
-    startBtn.disabled = true;
-    stopBtn.disabled = false;
-    statusIndicator.classList.add('active');
-  } else {
-    startBtn.disabled = false;
-    stopBtn.disabled = true;
-    statusIndicator.classList.remove('active');
-  }
+  startBtn.disabled = transcribing;
 }
 
 startBtn?.addEventListener('click', async () => {
@@ -111,10 +100,7 @@ startBtn?.addEventListener('click', async () => {
         
         if (response?.success) {
           updateUI(true);
-          
-          if (useSystemAudio) {
-            alert('✅ Started! The transcription will appear at the bottom of the page.');
-          }
+          // Overlay will appear automatically with STOP button
         } else {
           alert('❌ Failed to start: ' + (response?.message || 'Unknown error'));
         }
@@ -127,23 +113,5 @@ startBtn?.addEventListener('click', async () => {
   }
 });
 
-stopBtn?.addEventListener('click', async () => {
-  console.log('Stop clicked!');
-  
-  try {
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    
-    if (!tab.id) return;
-
-    chrome.tabs.sendMessage(tab.id, { action: 'stop' }, (response) => {
-      console.log('Stop response:', response);
-      updateUI(false);
-    });
-
-  } catch (error) {
-    console.error('Error stopping transcription:', error);
-    updateUI(false);
-  }
-});
-
 updateUI(false);
+console.log('Popup ready!');
